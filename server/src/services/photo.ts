@@ -11,6 +11,12 @@ export class PhotoService {
 		isPrimary: boolean = false
 	) {
 		try {
+			// Vérifier la limite de photos avant traitement
+			const photos = await ProfileModel.getPhotos(userId);
+			if (photos.length >= 5) {
+				throw new Error('Maximum number of photos reached (5)');
+			}
+
 			// Créer le dossier de destination s'il n'existe pas
 			const uploadDir = path.join(process.cwd(), 'uploads', 'profiles');
 			await fs.mkdir(uploadDir, { recursive: true });
@@ -40,20 +46,20 @@ export class PhotoService {
 			// Supprimer le fichier original
 			await fs.unlink(file.path);
 
-			// Sauvegarder dans la base de données
-			await ProfileModel.addPhoto(userId, processedFilename, isPrimary);
-
-			// Vérifier le nombre total de photos
-			const photos = await ProfileModel.getPhotos(userId);
-			if (photos.length > 5) {
-				throw new Error('Maximum number of photos reached (5)');
+			// Si c'est la première photo, la définir comme photo de profil
+			if (photos.length === 0) {
+				isPrimary = true;
 			}
+
+			// Sauvegarder dans la base de données
 			await ProfileModel.addPhoto(userId, processedFilename, isPrimary);
 
 			return {
 				filename: processedFilename,
-				thumbnail: thumbnailFilename
+				thumbnail: thumbnailFilename,
+				isPrimary
 			};
+
 		} catch (error) {
 			// Nettoyer en cas d'erreur
 			if (file.path) {
@@ -62,6 +68,7 @@ export class PhotoService {
 			throw error;
 		}
 	}
+
 	static async deletePhoto(userId: string, photoId: string): Promise<void> {
 		try {
 			// Vérifiez si la photo existe
@@ -89,6 +96,19 @@ export class PhotoService {
 				throw new Error('Failed to delete photo');
 			}
 		}
+	}
+
+	static async validatePhotoLimit(userId: string): Promise<boolean> {
+		const photos = await ProfileModel.getPhotos(userId);
+		if (photos.length >= 5) {
+			throw new Error('Maximum number of photos (5) reached');
+		}
+		return true;
+	}
+
+	static async hasProfilePicture(userId: string): Promise<boolean> {
+		const photos = await ProfileModel.getPhotos(userId);
+		return photos.some(photo => photo.is_primary);
 	}
 
 }
