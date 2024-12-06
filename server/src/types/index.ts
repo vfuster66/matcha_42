@@ -33,3 +33,4 @@ export interface User {
     is_primary: boolean;
     created_at: Date;
   }
+  

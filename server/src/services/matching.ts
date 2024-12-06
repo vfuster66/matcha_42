@@ -13,6 +13,23 @@ interface MatchFilters {
     };
 }
 
+interface SortOptions {
+    sortBy: 'age' | 'location' | 'fameRating' | 'commonTags';
+    order: 'asc' | 'desc';
+}
+
+interface MatchFilters {
+    ageRange: { min: number; max: number };
+    distance: number;
+    interests: string[];
+    sexualPreference: string;
+    location: {
+        city: string;
+        country: string;
+    };
+    fameRange?: { min: number; max: number };
+}
+
 class MatchingService {
     async getPotentialMatches(userId: number, filters: MatchFilters) {
         const query = `
@@ -91,6 +108,54 @@ class MatchingService {
                 return { ...matchUserProfile, matchScore: score };
             })
             .sort((a, b) => b.matchScore - a.matchScore);
+    }
+
+    async getFilteredAndSortedMatches(
+        userId: number, 
+        filters: MatchFilters, 
+        sortOptions: SortOptions
+    ) {
+        // D'abord obtenir les matches potentiels
+        let matches = await this.getPotentialMatches(userId, filters);
+        
+        // Appliquer les filtres supplémentaires
+        if (filters.fameRange) {
+            matches = matches.filter(match => 
+                match.fameRating >= filters.fameRange!.min && 
+                match.fameRating <= filters.fameRange!.max
+            );
+        }
+
+        // Appliquer le tri
+        return matches.sort((a, b) => {
+            switch(sortOptions.sortBy) {
+                case 'age':
+                    const comparison = a.age - b.age;
+                    return sortOptions.order === 'asc' ? comparison : -comparison;
+                
+                case 'location':
+                    if (a.location.city === filters.location.city) return -1;
+                    if (b.location.city === filters.location.city) return 1;
+                    return 0;
+                
+                case 'fameRating':
+                    return sortOptions.order === 'asc' 
+                        ? a.fameRating - b.fameRating 
+                        : b.fameRating - a.fameRating;
+                
+                case 'commonTags':
+                    const aCommonTags = a.interests.filter(tag => 
+                        filters.interests.includes(tag)).length;
+                    const bCommonTags = b.interests.filter(tag => 
+                        filters.interests.includes(tag)).length;
+                    return sortOptions.order === 'asc' 
+                        ? aCommonTags - bCommonTags 
+                        : bCommonTags - aCommonTags;
+                
+                default:
+                    return 0;
+            }
+        });
     }
 }
 

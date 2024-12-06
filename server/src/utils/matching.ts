@@ -25,20 +25,24 @@ interface ScoredUserProfile extends UserProfile {
 }
 
 // Export de la fonction calculateMatchScore en dehors d’une classe
+// Dans calculateMatchScore
 export function calculateMatchScore(user1: UserProfile, user2: UserProfile): number {
     let score = 0;
     
-    // Location (30%)
-    if (user1.location.city === user2.location.city) score += 30;
-    else if (user1.location.country === user2.location.country) score += 15;
+    // Location (50% au lieu de 30% pour respecter la priorité géographique)
+    if (user1.location.city === user2.location.city) {
+        score += 50; // Augmentation du poids de la localisation
+    } else if (user1.location.country === user2.location.country) {
+        score += 25;
+    }
     
-    // Intérêts communs (40%)
+    // Intérêts communs (30% au lieu de 40%)
     const commonInterests = user1.interests.filter(tag => user2.interests.includes(tag));
-    score += (commonInterests.length / Math.max(user1.interests.length, 1)) * 40;
+    score += (commonInterests.length / Math.max(user1.interests.length, 1)) * 30;
     
-    // Différence de "fame rating" (30%)
+    // Fame rating (20%)
     const fameRatingDiff = Math.abs(user1.fameRating - user2.fameRating);
-    score += (100 - fameRatingDiff) * 0.3;
+    score += (100 - fameRatingDiff) * 0.2;
     
     return Math.min(score, 100);
 }

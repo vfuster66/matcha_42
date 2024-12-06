@@ -63,7 +63,7 @@ export class ProfileController {
     } catch (error) {
       if (error instanceof Error) {
         res.status(400).json({ error: error.message });
-        return;  // Ajout du return pour éviter la double réponse
+        return;
       }
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -98,4 +98,4 @@ export class ProfileController {
   }
 }
 
-export default ProfileController;  // Ajout d'un export par défaut
+export default ProfileController;
