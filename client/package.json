@@ -1,36 +1,38 @@
 {
-  "name": "client",
+  "name": "matcha-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "format": "prettier --write src/"
   },
   "dependencies": {
-    "@heroicons/vue": "^2.2.0",
-    "@vee-validate/zod": "^4.14.7",
-    "@vueuse/core": "^12.0.0",
-    "autoprefixer": "^10.4.20",
-    "axios": "^1.7.8",
-    "date-fns": "^4.1.0",
-    "pinia": "^2.2.8",
-    "postcss": "^8.4.49",
-    "socket.io-client": "^4.8.1",
-    "tailwindcss": "^3.4.15",
-    "vee-validate": "^4.14.7",
-    "vue": "^3.5.13",
-    "vue-router": "4",
-    "zod": "^3.23.8"
+    "@vueuse/core": "^10.4.1",
+    "axios": "^1.4.0",
+    "socket.io-client": "^4.7.2",
+    "vue-router": "^4.5.0",
+    "zod": "^3.22.2"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.9",
-    "@types/node": "^22.10.1",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "typescript": "~5.6.2",
-    "vite": "^6.0.1",
-    "vue-tsc": "^2.1.10"
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "@types/node": "^20.17.9",
+    "@vitejs/plugin-vue": "^4.6.2",
+    "@vue/runtime-core": "^3.5.13",
+    "@vue/tsconfig": "^0.4.0",
+    "autoprefixer": "^10.4.20",
+    "pinia": "^2.2.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.2.2",
+    "vite": "^4.4.9",
+    "vue": "^3.5.13",
+    "vue-tsc": "^1.8.8"
   },
   "packageManager": "pnpm@8.9.0+sha512.ef8859938e1f0537b9fcf0309044311392f3b38b344176e6cd4fdee21b225524b0ac2a1b08ae2ae2ddd5b3ff4b8ca496d6778e950f3e7c9f555b81325982441c"
 }
