@@ -23,9 +23,16 @@ const loginHandler = async (req: Request, res: Response, next: NextFunction) => 
  }
 };
 
-router.post('/register',
- validateRequest(registerSchema),
- registerHandler
+router.post(
+  '/register',
+  validateRequest(registerSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+      try {
+          await AuthController.register(req, res);
+      } catch (error) {
+          next(error);
+      }
+  }
 );
 
 router.post('/login', 

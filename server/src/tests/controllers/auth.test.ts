@@ -1,16 +1,16 @@
 // src/tests/auth.test.ts
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { AuthController } from '../controllers/auth';
-import { UserModel } from '../models/User';
-import { sendVerificationEmail } from '../services/email';
-import { registerSchema, loginSchema } from '../utils/validators';
+import { AuthController } from '../../controllers/auth';
+import { UserModel } from '../../models/User';
+import { sendVerificationEmail } from '../../services/email';
+import { registerSchema, loginSchema } from '../../utils/validators';
 
 // Mock des dépendances
-jest.mock('../models/User');
-jest.mock('../services/email');
+jest.mock('../../models/User');
+jest.mock('../../services/email');
 jest.mock('jsonwebtoken');
-jest.mock('../utils/validators');
+jest.mock('../../utils/validators');
 
 describe('AuthController', () => {
 	let mockRequest: Partial<Request>;

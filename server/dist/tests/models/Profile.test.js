@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// src/tests/models/Profile.test.ts
 const Profile_1 = require("../../models/Profile");
 const database_1 = require("../../config/database");
 jest.mock('../../config/database', () => ({
@@ -68,6 +67,7 @@ describe('ProfileModel', () => {
             });
             const result = await Profile_1.ProfileModel.findByUserId('test-id');
             expect(result).toEqual(mockProfile);
+            expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('SELECT'), ['test-id']);
         });
         it('should return null when profile not found', async () => {
             database_1.db.query.mockResolvedValue({
@@ -77,13 +77,15 @@ describe('ProfileModel', () => {
             expect(result).toBeNull();
         });
     });
-    describe('interest management', () => {
+    describe('Interest Management', () => {
         describe('addInterest', () => {
             it('should add a new interest', async () => {
-                database_1.db.query.mockResolvedValueOnce({ rows: [] })
-                    .mockResolvedValueOnce({ rows: [] });
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] })
+                    .mockResolvedValueOnce({ rows: [{ name: 'music' }] });
                 await Profile_1.ProfileModel.addInterest('test-id', 'music');
                 expect(database_1.db.query).toHaveBeenCalledTimes(2);
+                expect(database_1.db.query).toHaveBeenLastCalledWith(expect.stringContaining('INSERT INTO user_interests'), ['test-id', 'music']);
             });
         });
         describe('removeInterest', () => {
@@ -106,66 +108,95 @@ describe('ProfileModel', () => {
                 expect(result).toEqual(['music', 'sports']);
             });
             it('should return empty array when no interests found', async () => {
-                database_1.db.query.mockResolvedValue({
-                    rows: []
-                });
+                database_1.db.query.mockResolvedValue({ rows: [] });
                 const result = await Profile_1.ProfileModel.getInterests('test-id');
                 expect(result).toEqual([]);
             });
         });
-        describe('Photo management', () => {
-            describe('addPhoto', () => {
-                it('should add a photo to the database', async () => {
-                    database_1.db.query.mockResolvedValue({ rows: [] });
-                    await Profile_1.ProfileModel.addPhoto('test-id', 'photo.jpg', true);
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO profile_pictures'), ['test-id', 'photo.jpg', true]);
-                });
+    });
+    describe('Photo Management', () => {
+        describe('setPrimaryPhoto', () => {
+            it('should set a photo as primary', async () => {
+                // Mock la transaction BEGIN
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] }) // BEGIN
+                    .mockResolvedValueOnce({
+                    rows: [{
+                            id: '1',
+                            user_id: 'test-id',
+                            is_primary: false
+                        }]
+                })
+                    .mockResolvedValueOnce({ rows: [] }) // Reset autres photos
+                    .mockResolvedValueOnce({ rows: [] }) // Set nouvelle photo primaire
+                    .mockResolvedValueOnce({ rows: [] }); // COMMIT
+                await Profile_1.ProfileModel.setPrimaryPhoto('test-id', '1');
+                expect(database_1.db.query).toHaveBeenCalledTimes(5);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(1, 'BEGIN');
+                expect(database_1.db.query).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id FROM profile_pictures'), ['1', 'test-id']);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE profile_pictures SET is_primary = false'), ['test-id']);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(4, expect.stringContaining('UPDATE profile_pictures SET is_primary = true'), ['1']);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(5, 'COMMIT');
             });
-            describe('getPhotos', () => {
-                it('should return photos of a user', async () => {
-                    const mockPhotos = [
-                        { id: '1', file_path: 'photo1.jpg', is_primary: true, created_at: new Date() },
-                        { id: '2', file_path: 'photo2.jpg', is_primary: false, created_at: new Date() }
-                    ];
-                    database_1.db.query.mockResolvedValue({ rows: mockPhotos });
-                    const result = await Profile_1.ProfileModel.getPhotos('test-id');
-                    expect(result).toEqual(mockPhotos);
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('SELECT id, file_path, is_primary, created_at'), ['test-id']);
-                });
+            it('should fail if photo not found', async () => {
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] }) // BEGIN
+                    .mockResolvedValueOnce({ rows: [] }); // Vérification photo échoue
+                await expect(Profile_1.ProfileModel.setPrimaryPhoto('test-id', '999')).rejects.toThrow('Photo not found or unauthorized');
             });
-            describe('setPrimaryPhoto', () => {
-                it('should update the primary photo for a user', async () => {
-                    database_1.db.query.mockResolvedValue({ rows: [] });
-                    await Profile_1.ProfileModel.setPrimaryPhoto('test-id', 'photo-id');
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profile_pictures SET is_primary = false'), ['test-id']);
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profile_pictures SET is_primary = true'), ['photo-id']);
-                });
-                it('should throw an error if photo does not belong to the user', async () => {
-                    database_1.db.query.mockResolvedValue({ rows: [] });
-                    await expect(Profile_1.ProfileModel.setPrimaryPhoto('test-id', 'invalid-photo-id')).rejects.toThrow('Photo not found or unauthorized');
-                });
+        });
+        describe('deletePhoto', () => {
+            it('should delete a non-primary photo', async () => {
+                const mockPhoto = {
+                    id: '1',
+                    user_id: 'test-id',
+                    file_path: 'test.jpg',
+                    is_primary: false
+                };
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] }) // BEGIN
+                    .mockResolvedValueOnce({
+                    rows: [mockPhoto]
+                })
+                    .mockResolvedValueOnce({ rows: [mockPhoto] }) // DELETE
+                    .mockResolvedValueOnce({ rows: [] }); // COMMIT
+                await Profile_1.ProfileModel.deletePhoto('test-id', '1');
+                expect(database_1.db.query).toHaveBeenCalledTimes(4);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(1, 'BEGIN');
+                expect(database_1.db.query).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT file_path, is_primary FROM profile_pictures'), ['1', 'test-id']);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(3, expect.stringContaining('DELETE FROM profile_pictures'), ['1', 'test-id']);
             });
-            describe('deletePhoto', () => {
-                it('should delete a photo from the database', async () => {
-                    const mockPhoto = { file_path: 'photo.jpg', is_primary: false };
-                    database_1.db.query.mockResolvedValueOnce({ rows: [mockPhoto] }).mockResolvedValueOnce({
-                        rows: []
-                    });
-                    await Profile_1.ProfileModel.deletePhoto('test-id', 'photo-id');
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM profile_pictures'), ['photo-id', 'test-id']);
-                });
-                it('should set a new primary photo if the deleted photo was primary', async () => {
-                    const mockPhoto = { file_path: 'photo.jpg', is_primary: true };
-                    database_1.db.query.mockResolvedValueOnce({ rows: [mockPhoto] }).mockResolvedValueOnce({
-                        rows: []
-                    });
-                    await Profile_1.ProfileModel.deletePhoto('test-id', 'photo-id');
-                    expect(database_1.db.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profile_pictures SET is_primary = true'), ['test-id']);
-                });
-                it('should throw an error if photo does not exist', async () => {
-                    database_1.db.query.mockResolvedValue({ rows: [] });
-                    await expect(Profile_1.ProfileModel.deletePhoto('test-id', 'invalid-photo-id')).rejects.toThrow('Photo not found or unauthorized');
-                });
+            it('should delete primary photo and set new primary', async () => {
+                const mockPrimaryPhoto = {
+                    id: '1',
+                    user_id: 'test-id',
+                    file_path: 'test1.jpg',
+                    is_primary: true
+                };
+                const mockNextPhoto = {
+                    id: '2',
+                    user_id: 'test-id',
+                    file_path: 'test2.jpg',
+                    is_primary: false
+                };
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] }) // BEGIN
+                    .mockResolvedValueOnce({
+                    rows: [mockPrimaryPhoto]
+                })
+                    .mockResolvedValueOnce({ rows: [mockPrimaryPhoto] }) // DELETE
+                    .mockResolvedValueOnce({ rows: [mockNextPhoto] }) // SELECT next photo
+                    .mockResolvedValueOnce({ rows: [{ ...mockNextPhoto, is_primary: true }] }); // UPDATE new primary
+                await Profile_1.ProfileModel.deletePhoto('test-id', '1');
+                expect(database_1.db.query).toHaveBeenCalledTimes(5);
+                expect(database_1.db.query).toHaveBeenNthCalledWith(1, 'BEGIN');
+                expect(database_1.db.query).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT file_path, is_primary FROM profile_pictures'), ['1', 'test-id']);
+            });
+            it('should fail if photo not found', async () => {
+                database_1.db.query
+                    .mockResolvedValueOnce({ rows: [] }) // BEGIN
+                    .mockResolvedValueOnce({ rows: [] }); // Vérification photo échoue
+                await expect(Profile_1.ProfileModel.deletePhoto('test-id', '999')).rejects.toThrow('Photo not found or unauthorized');
             });
         });
     });

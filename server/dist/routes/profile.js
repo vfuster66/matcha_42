@@ -26,7 +26,26 @@ const updateProfileHandler = async (req, res, next) => {
 // Routes
 router.get('/', auth_1.authMiddleware, getProfileHandler);
 router.put('/', auth_1.authMiddleware, updateProfileHandler);
-router.post('/photos', auth_1.authMiddleware, upload_1.uploadConfig.single('photo'), photo_1.PhotoController.uploadPhoto);
+router.post('/photos', auth_1.authMiddleware, (req, res, next) => {
+    upload_1.uploadConfig.single('photo')(req, res, (err) => {
+        if (err) {
+            // Gestion des erreurs spécifiques Multer
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(500).json({ error: 'File too large' });
+            }
+            if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+                return res.status(500).json({ error: 'Unexpected field' });
+            }
+            // Gestion des erreurs générales
+            if (err.message) {
+                return res.status(500).json({ error: err.message });
+            }
+            // Erreur inconnue
+            return res.status(500).json({ error: 'An unknown error occurred.' });
+        }
+        next(); // Continue vers PhotoController.uploadPhoto
+    });
+}, photo_1.PhotoController.uploadPhoto);
 router.put('/photos/:photoId/primary', auth_1.authMiddleware, photo_1.PhotoController.setPrimaryPhoto);
 router.delete('/photos/:photoId', auth_1.authMiddleware, photo_1.PhotoController.deletePhoto);
 exports.default = router;

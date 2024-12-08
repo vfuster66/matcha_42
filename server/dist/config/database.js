@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testConnection = exports.db = void 0;
+// src/config/database.ts
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
@@ -13,18 +14,11 @@ if (!process.env.DATABASE_URL) {
 const pool = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
 });
-// Gestion des erreurs globales du pool
 pool.on('error', (err) => {
     console.error('Unexpected error on idle client', err);
     process.exit(-1);
 });
 exports.db = {
-    /**
-     * Exécute une requête SQL
-     * @param text - La requête SQL
-     * @param params - Les paramètres optionnels
-     * @returns Une promesse avec le résultat de la requête
-     */
     query: async (text, params) => {
         try {
             return await pool.query(text, params);
@@ -35,10 +29,6 @@ exports.db = {
         }
     },
 };
-/**
- * Teste la connexion à la base de données
- * @returns Une promesse vide si la connexion est réussie
- */
 const testConnection = async () => {
     try {
         await pool.query('SELECT NOW()');

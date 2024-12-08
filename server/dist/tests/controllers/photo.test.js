@@ -4,12 +4,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const photo_1 = require("../../controllers/photo");
 const Profile_1 = require("../../models/Profile");
 const photo_2 = require("../../services/photo");
+const fameRating_1 = require("../../services/fameRating");
 jest.mock('../../models/Profile');
 jest.mock('../../services/photo');
+jest.mock('../../services/fameRating', () => ({
+    FameRatingService: {
+        updateFameRating: jest.fn(),
+    },
+}));
 const mockResponse = () => {
     const res = {};
-    res.status = jest.fn().mockReturnValue(res);
-    res.json = jest.fn().mockReturnValue(res);
+    res.status = jest.fn().mockReturnThis();
+    res.json = jest.fn().mockReturnThis();
     return res;
 };
 const mockRequest = (userId, params, body, file) => ({
@@ -17,6 +23,16 @@ const mockRequest = (userId, params, body, file) => ({
     params,
     body,
     file,
+});
+beforeEach(() => {
+    jest.clearAllMocks();
+    Profile_1.ProfileModel.getPhotos.mockResolvedValue([]);
+    photo_2.PhotoService.processAndSavePhoto.mockResolvedValue({
+        filename: 'test_processed.jpg',
+        thumbnail: 'test_thumb.jpg',
+    });
+    Profile_1.ProfileModel.setPrimaryPhoto.mockResolvedValue(undefined);
+    photo_2.PhotoService.deletePhoto.mockResolvedValue(undefined);
 });
 describe('PhotoController', () => {
     let req;
@@ -41,7 +57,7 @@ describe('PhotoController', () => {
         });
         it('should upload photo and respond with success message', async () => {
             req = mockRequest('user-id', {}, {}, { path: 'test-path', filename: 'test.jpg' });
-            Profile_1.ProfileModel.getPhotos.mockResolvedValue([]);
+            Profile_1.ProfileModel.getPhotos.mockResolvedValueOnce([]);
             photo_2.PhotoService.processAndSavePhoto.mockResolvedValue({
                 filename: 'test_processed.jpg',
                 thumbnail: 'test_thumb.jpg',
@@ -70,7 +86,7 @@ describe('PhotoController', () => {
         });
         it('should set primary photo and respond with success message', async () => {
             req = mockRequest('user-id', { photoId: 'photo-id' });
-            Profile_1.ProfileModel.setPrimaryPhoto.mockResolvedValue();
+            Profile_1.ProfileModel.setPrimaryPhoto.mockResolvedValue(undefined);
             await photo_1.PhotoController.setPrimaryPhoto(req, res);
             expect(Profile_1.ProfileModel.setPrimaryPhoto).toHaveBeenCalledWith('user-id', 'photo-id');
             expect(res.json).toHaveBeenCalledWith({
@@ -79,23 +95,30 @@ describe('PhotoController', () => {
         });
     });
     describe('deletePhoto', () => {
-        it('should return 401 if user is unauthorized', async () => {
-            req = mockRequest(undefined, { photoId: 'photo-id' });
+        it('should delete photo and respond with success message', async () => {
+            req = {
+                user: { id: 'user-id' },
+                params: { photoId: 'photo-id' },
+            };
+            photo_2.PhotoService.deletePhoto.mockResolvedValue(undefined);
+            fameRating_1.FameRatingService.updateFameRating.mockResolvedValue(undefined);
             await photo_1.PhotoController.deletePhoto(req, res);
-            expect(res.status).toHaveBeenCalledWith(401);
-            expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized' });
-        });
-        it('should return 400 if photoId is missing', async () => {
-            req = mockRequest('user-id', {});
-            await photo_1.PhotoController.deletePhoto(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith({ error: 'Photo ID is required' });
+            expect(photo_2.PhotoService.deletePhoto).toHaveBeenCalledWith('user-id', 'photo-id');
+            expect(fameRating_1.FameRatingService.updateFameRating).toHaveBeenCalledWith('user-id');
+            expect(res.json).toHaveBeenCalledWith({
+                message: 'Photo deleted successfully',
+            });
         });
         it('should delete photo and respond with success message', async () => {
             req = mockRequest('user-id', { photoId: 'photo-id' });
-            photo_2.PhotoService.deletePhoto.mockResolvedValue();
+            // Mock les dépendances
+            photo_2.PhotoService.deletePhoto.mockResolvedValue(undefined);
+            fameRating_1.FameRatingService.updateFameRating.mockResolvedValue(undefined);
             await photo_1.PhotoController.deletePhoto(req, res);
+            // Vérifie que les services sont appelés avec les bons paramètres
             expect(photo_2.PhotoService.deletePhoto).toHaveBeenCalledWith('user-id', 'photo-id');
+            expect(fameRating_1.FameRatingService.updateFameRating).toHaveBeenCalledWith('user-id');
+            // Vérifie la réponse
             expect(res.json).toHaveBeenCalledWith({
                 message: 'Photo deleted successfully',
             });

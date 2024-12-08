@@ -1,174 +1,199 @@
+import { PhotoService } from '../../services/photo';
+import { ProfileModel } from '../../models/Profile';
+import sharp from 'sharp';
+import fs from 'fs/promises';
+import path from 'path';
+
 // Mocks
-jest.mock('../../controllers/profile');
-jest.mock('../../controllers/photo');
-jest.mock('../../middleware/auth');
-jest.mock('multer', () => {
-  const multer = () => {
-    return {
-      single: (): (req: any, res: any, next: any) => void => (req, res, next) => next(),
-    };
-  };
-  multer.diskStorage = () => {};
-  return multer;
-});
+jest.mock('sharp');
+jest.mock('fs/promises');
+jest.mock('path');
+jest.mock('../../models/Profile');
 
-import request from 'supertest';
-import { ProfileController } from '../../controllers/profile';
-import { PhotoController } from '../../controllers/photo';
-import { authMiddleware } from '../../middleware/auth';
-import app from '../../app';
-
-
-describe('Profile Routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (authMiddleware as jest.Mock).mockImplementation((req, res, next) => next());
-  });
-
-  describe('GET /api/profile', () => {
-    it('should call ProfileController.getProfile', async () => {
-      const mockProfile = {
-        user_id: '1',
-        first_name: 'John',
-        last_name: 'Doe',
-        interests: ['music']
-      };
-
-      (ProfileController.getProfile as jest.Mock).mockImplementation((req, res) => {
-        res.status(200).json({ profile: mockProfile });
-      });
-
-      const response = await request(app)
-        .get('/api/profile')
-        .set('Authorization', 'Bearer test-token');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ profile: mockProfile });
-      expect(ProfileController.getProfile).toHaveBeenCalled();
-    });
-
-    it('should handle errors', async () => {
-      (ProfileController.getProfile as jest.Mock).mockImplementation(() => {
-        throw new Error('Internal Server Error');
-      });
-
-      const response = await request(app)
-        .get('/api/profile')
-        .set('Authorization', 'Bearer test-token');
-
-      expect(response.status).toBe(500);
-      expect(response.body).toHaveProperty('error', 'Internal Server Error');
-    });
-  });
-
-  describe('PUT /api/profile', () => {
-    const updateData = {
-      first_name: 'John',
-      last_name: 'Doe',
-      interests: ['music']
+describe('PhotoService', () => {
+    const mockUserId = '123';
+    const mockFile: Express.Multer.File = {
+        filename: 'test.jpg',
+        path: '/tmp/test.jpg',
+        fieldname: 'photo',
+        originalname: 'original.jpg',
+        encoding: '7bit',
+        mimetype: 'image/jpeg',
+        size: 1024,
+        destination: '/tmp',
+        buffer: Buffer.from('test'),
+        stream: null as any
     };
 
-    it('should call ProfileController.updateProfile', async () => {
-      (ProfileController.updateProfile as jest.Mock).mockImplementation((req, res) => {
-        res.status(200).json({ profile: { ...updateData, id: 1 } });
-      });
-
-      const response = await request(app)
-        .put('/api/profile')
-        .set('Authorization', 'Bearer test-token')
-        .send(updateData);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('profile');
-      expect(ProfileController.updateProfile).toHaveBeenCalled();
-    });
-  });
-
-  describe('Photo Routes', () => {
-    describe('POST /api/profile/photos', () => {
-      const testImageBuffer = Buffer.from('fake image data');
-      const mockPhoto = {
-        id: '1',
-        file_path: 'test.jpg',
-        is_primary: true
-      };
-
-      it('should handle successful photo upload', async () => {
-        (PhotoController.uploadPhoto as jest.Mock).mockImplementation((req, res) => {
-          res.status(200).json({
-            message: 'Photo uploaded successfully',
-            photo: mockPhoto
-          });
+    beforeEach(() => {
+        jest.clearAllMocks();
+        (path.join as jest.Mock).mockImplementation((...args) => args.join('/'));
+        (path.parse as jest.Mock).mockReturnValue({ name: 'test' });
+        (sharp as jest.Mock).mockReturnValue({
+            resize: jest.fn().mockReturnThis(),
+            jpeg: jest.fn().mockReturnThis(),
+            toFile: jest.fn().mockResolvedValue(undefined)
         });
-
-        const response = await request(app)
-          .post('/api/profile/photos')
-          .set('Authorization', 'Bearer test-token')
-          .attach('photo', testImageBuffer, {
-            filename: 'test.jpg',
-            contentType: 'image/jpeg'
-          });
-
-        expect(response.status).toBe(200);
-        expect(response.body.message).toBe('Photo uploaded successfully');
-        expect(response.body.photo).toEqual(mockPhoto);
-        expect(PhotoController.uploadPhoto).toHaveBeenCalled();
-      });
-
-      it('should handle maximum photos limit', async () => {
-        (PhotoController.uploadPhoto as jest.Mock).mockImplementation((req, res) => {
-          res.status(400).json({
-            error: 'Maximum number of photos reached (5)'
-          });
-        });
-
-        const response = await request(app)
-          .post('/api/profile/photos')
-          .set('Authorization', 'Bearer test-token')
-          .attach('photo', testImageBuffer, {
-            filename: 'test.jpg',
-            contentType: 'image/jpeg'
-          });
-
-        expect(response.status).toBe(400);
-        expect(response.body.error).toBe('Maximum number of photos reached (5)');
-      });
     });
 
-    describe('PUT /api/profile/photos/:photoId/primary', () => {
-      it('should set photo as primary', async () => {
-        (PhotoController.setPrimaryPhoto as jest.Mock).mockImplementation((req, res) => {
-          res.status(200).json({
-            message: 'Primary photo updated successfully'
-          });
+    describe('processAndSavePhoto', () => {
+        beforeEach(() => {
+            (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
+            (fs.unlink as jest.Mock).mockResolvedValue(undefined);
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([]);
+            (ProfileModel.addPhoto as jest.Mock).mockResolvedValue({ id: '1' });
         });
 
-        const response = await request(app)
-          .put('/api/profile/photos/1/primary')
-          .set('Authorization', 'Bearer test-token');
+        it('should process and save a new photo successfully', async () => {
+            const result = await PhotoService.processAndSavePhoto(mockUserId, mockFile);
 
-        expect(response.status).toBe(200);
-        expect(response.body.message).toBe('Primary photo updated successfully');
-        expect(PhotoController.setPrimaryPhoto).toHaveBeenCalled();
-      });
-    });
+            expect(result).toEqual({
+                filename: 'test_processed.jpg',
+                thumbnail: 'test_thumb.jpg',
+                isPrimary: true
+            });
 
-    describe('DELETE /api/profile/photos/:photoId', () => {
-      it('should delete photo', async () => {
-        (PhotoController.deletePhoto as jest.Mock).mockImplementation((req, res) => {
-          res.status(200).json({
-            message: 'Photo deleted successfully'
-          });
+            expect(sharp).toHaveBeenCalledWith(mockFile.path);
+            expect(ProfileModel.addPhoto).toHaveBeenCalledWith(
+                mockUserId,
+                'test_processed.jpg',
+                true
+            );
+            expect(fs.unlink).toHaveBeenCalledWith(mockFile.path);
         });
 
-        const response = await request(app)
-          .delete('/api/profile/photos/1')
-          .set('Authorization', 'Bearer test-token');
+        it('should throw error when photo limit is reached', async () => {
+            const existingPhotos = Array(5).fill({ id: '1', file_path: 'test.jpg' });
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue(existingPhotos);
 
-        expect(response.status).toBe(200);
-        expect(response.body.message).toBe('Photo deleted successfully');
-        expect(PhotoController.deletePhoto).toHaveBeenCalled();
-      });
+            await expect(PhotoService.processAndSavePhoto(mockUserId, mockFile))
+                .rejects
+                .toThrow('Maximum number of photos reached (5)');
+        });
+
+        it('should handle sharp processing errors', async () => {
+            const mockError = new Error('Processing failed');
+            (sharp as jest.Mock).mockReturnValue({
+                resize: jest.fn().mockReturnThis(),
+                jpeg: jest.fn().mockReturnThis(),
+                toFile: jest.fn().mockRejectedValue(mockError)
+            });
+
+            await expect(PhotoService.processAndSavePhoto(mockUserId, mockFile))
+                .rejects
+                .toThrow('Processing failed');
+            
+            expect(fs.unlink).toHaveBeenCalledWith(mockFile.path);
+        });
+
+        it('should set isPrimary true for first photo', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([]);
+
+            await PhotoService.processAndSavePhoto(mockUserId, mockFile, false);
+
+            expect(ProfileModel.addPhoto).toHaveBeenCalledWith(
+                mockUserId,
+                'test_processed.jpg',
+                true
+            );
+        });
+
+        it('should handle mkdir errors', async () => {
+            (fs.mkdir as jest.Mock).mockRejectedValue(new Error('mkdir failed'));
+
+            await expect(PhotoService.processAndSavePhoto(mockUserId, mockFile))
+                .rejects
+                .toThrow('mkdir failed');
+        });
     });
-  });
+
+    describe('deletePhoto', () => {
+        const mockPhotoId = '1';
+        const mockPhoto = {
+            id: mockPhotoId,
+            file_path: 'test_processed.jpg',
+            is_primary: false
+        };
+
+        beforeEach(() => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([mockPhoto]);
+            (ProfileModel.deletePhoto as jest.Mock).mockResolvedValue(undefined);
+            (fs.unlink as jest.Mock).mockResolvedValue(undefined);
+        });
+
+        it('should delete photo successfully', async () => {
+            await PhotoService.deletePhoto(mockUserId, mockPhotoId);
+
+            expect(ProfileModel.deletePhoto).toHaveBeenCalledWith(mockUserId, mockPhotoId);
+            expect(fs.unlink).toHaveBeenCalledTimes(2); // processed + thumbnail
+        });
+
+        it('should throw error when photo not found', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([]);
+
+            await expect(PhotoService.deletePhoto(mockUserId, mockPhotoId))
+                .rejects
+                .toThrow('Photo not found or unauthorized');
+        });
+
+        it('should handle fs.unlink errors gracefully', async () => {
+            (fs.unlink as jest.Mock).mockRejectedValue(new Error('unlink failed'));
+
+            await PhotoService.deletePhoto(mockUserId, mockPhotoId);
+
+            expect(ProfileModel.deletePhoto).toHaveBeenCalled();
+        });
+
+        it('should handle ProfileModel.deletePhoto errors', async () => {
+            (ProfileModel.deletePhoto as jest.Mock).mockRejectedValue(new Error('delete failed'));
+
+            await expect(PhotoService.deletePhoto(mockUserId, mockPhotoId))
+                .rejects
+                .toThrow('Failed to delete photo: delete failed');
+        });
+    });
+
+    describe('validatePhotoLimit', () => {
+        it('should return true when under photo limit', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([]);
+
+            const result = await PhotoService.validatePhotoLimit(mockUserId);
+            expect(result).toBe(true);
+        });
+
+        it('should throw error when at photo limit', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue(Array(5).fill({}));
+
+            await expect(PhotoService.validatePhotoLimit(mockUserId))
+                .rejects
+                .toThrow('Maximum number of photos (5) reached');
+        });
+    });
+
+    describe('hasProfilePicture', () => {
+        it('should return true when primary photo exists', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([
+                { is_primary: true }
+            ]);
+
+            const result = await PhotoService.hasProfilePicture(mockUserId);
+            expect(result).toBe(true);
+        });
+
+        it('should return false when no primary photo exists', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([
+                { is_primary: false }
+            ]);
+
+            const result = await PhotoService.hasProfilePicture(mockUserId);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when no photos exist', async () => {
+            (ProfileModel.getPhotos as jest.Mock).mockResolvedValue([]);
+
+            const result = await PhotoService.hasProfilePicture(mockUserId);
+            expect(result).toBe(false);
+        });
+    });
 });

@@ -38,9 +38,29 @@ router.put('/', authMiddleware, updateProfileHandler);
 router.post(
   '/photos',
   authMiddleware,
-  uploadConfig.single('photo'),
+  (req, res, next) => {
+    uploadConfig.single('photo')(req, res, (err) => {
+      if (err) {
+        // Gestion des erreurs spécifiques Multer
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(500).json({ error: 'File too large' });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(500).json({ error: 'Unexpected field' });
+        }
+        // Gestion des erreurs générales
+        if (err.message) {
+          return res.status(500).json({ error: err.message });
+        }
+        // Erreur inconnue
+        return res.status(500).json({ error: 'An unknown error occurred.' });
+      }
+      next(); // Continue vers PhotoController.uploadPhoto
+    });
+  },
   PhotoController.uploadPhoto
 );
+
 
 router.put(
   '/photos/:photoId/primary',

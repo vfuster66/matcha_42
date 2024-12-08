@@ -16,11 +16,11 @@ dotenv_1.default.config({ path: '.env.test' });
     jest.clearAllMocks();
 });
 // Configuration globale pour les tests
+const isDebugMode = process.env.DEBUG === 'true';
 global.console = {
     ...console,
-    // Désactiver les logs pendant les tests
-    log: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
+    log: isDebugMode ? console.log : jest.fn(),
+    error: isDebugMode ? console.error : jest.fn(),
+    warn: isDebugMode ? console.warn : jest.fn(),
+    info: isDebugMode ? console.info : jest.fn(),
 };

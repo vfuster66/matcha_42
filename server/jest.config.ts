@@ -19,6 +19,8 @@ const config: Config.InitialOptions = {
     '!src/**/index.ts',
     '!src/tests/**/*.ts'
   ],
+  silent: false,
+  verbose: true,
 };
 
 export default config;

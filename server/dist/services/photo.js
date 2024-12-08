@@ -12,6 +12,11 @@ const Profile_1 = require("../models/Profile");
 class PhotoService {
     static async processAndSavePhoto(userId, file, isPrimary = false) {
         try {
+            // Vérifier la limite de photos avant traitement
+            const photos = await Profile_1.ProfileModel.getPhotos(userId);
+            if (photos.length >= 5) {
+                throw new Error('Maximum number of photos reached (5)');
+            }
             // Créer le dossier de destination s'il n'existe pas
             const uploadDir = path_1.default.join(process.cwd(), 'uploads', 'profiles');
             await promises_1.default.mkdir(uploadDir, { recursive: true });
@@ -36,16 +41,16 @@ class PhotoService {
                 .toFile(path_1.default.join(uploadDir, thumbnailFilename));
             // Supprimer le fichier original
             await promises_1.default.unlink(file.path);
+            // Si c'est la première photo, la définir comme photo de profil
+            if (photos.length === 0) {
+                isPrimary = true;
+            }
             // Sauvegarder dans la base de données
             await Profile_1.ProfileModel.addPhoto(userId, processedFilename, isPrimary);
-            // Vérifier le nombre total de photos
-            const photos = await Profile_1.ProfileModel.getPhotos(userId);
-            if (photos.length > 5) {
-                throw new Error('Maximum number of photos reached (5)');
-            }
             return {
                 filename: processedFilename,
-                thumbnail: thumbnailFilename
+                thumbnail: thumbnailFilename,
+                isPrimary
             };
         }
         catch (error) {
@@ -81,6 +86,17 @@ class PhotoService {
                 throw new Error('Failed to delete photo');
             }
         }
+    }
+    static async validatePhotoLimit(userId) {
+        const photos = await Profile_1.ProfileModel.getPhotos(userId);
+        if (photos.length >= 5) {
+            throw new Error('Maximum number of photos (5) reached');
+        }
+        return true;
+    }
+    static async hasProfilePicture(userId) {
+        const photos = await Profile_1.ProfileModel.getPhotos(userId);
+        return photos.some(photo => photo.is_primary);
     }
 }
 exports.PhotoService = PhotoService;

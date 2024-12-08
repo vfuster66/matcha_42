@@ -8,7 +8,6 @@ exports.uploadConfig = void 0;
 const multer_1 = __importDefault(require("multer"));
 const uuid_1 = require("uuid");
 const path_1 = __importDefault(require("path"));
-// Configuration du stockage
 const storage = multer_1.default.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/profiles/');
@@ -18,7 +17,6 @@ const storage = multer_1.default.diskStorage({
         cb(null, `${uniqueSuffix}${path_1.default.extname(file.originalname)}`);
     }
 });
-// Validation des types de fichiers
 const fileFilter = (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     if (!allowedTypes.includes(file.mimetype)) {
@@ -31,7 +29,7 @@ exports.uploadConfig = (0, multer_1.default)({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB max
-        files: 1 // Un seul fichier à la fois
+        fileSize: 5 * 1024 * 1024,
+        files: 1
     }
 });

@@ -66,30 +66,36 @@ class MatchingService {
     }
  
     private filterAndScoreMatches(matches: any[], filters: MatchFilters) {
-        // Construction d'un UserProfile représentant l'utilisateur courant
+        // Construire le profil principal de l'utilisateur
         const mainUserProfile: UserProfile = {
-            id: 0, // À remplacer par l'ID réel de l'utilisateur, si disponible
+            id: 0,
             location: {
                 city: filters.location.city,
-                country: filters.location.country
+                country: filters.location.country,
             },
             interests: filters.interests,
-            fameRating: 50, // Valeur par défaut, à ajuster
-            gender: 'both', // Valeur par défaut, remplacer par la vraie info utilisateur
+            fameRating: 50,
+            gender: 'both',
             sexualPreferences: filters.sexualPreference,
-            age: Math.round((filters.ageRange.min + filters.ageRange.max) / 2) // approximation
+            age: Math.round((filters.ageRange.min + filters.ageRange.max) / 2),
         };
-
-        return matches
+    
+        // Précalculer les âges
+        const matchesWithAge = matches.map(match => ({
+            ...match,
+            age: calculateAge(match.birth_date),
+        }));
+    
+        // Filtrer les utilisateurs et calculer les scores
+        return matchesWithAge
             .filter(match => {
-                const age = calculateAge(match.birth_date);
-                const hasCommonInterests = match.interests && match.interests.some(
+                const hasCommonInterests = match.interests?.some(
                     (i: string) => filters.interests.includes(i)
                 );
-                
+    
                 return (
-                    age >= filters.ageRange.min && 
-                    age <= filters.ageRange.max &&
+                    match.age >= filters.ageRange.min &&
+                    match.age <= filters.ageRange.max &&
                     hasCommonInterests
                 );
             })
@@ -98,17 +104,19 @@ class MatchingService {
                     id: match.id,
                     location: { city: match.city, country: match.country },
                     interests: match.interests || [],
-                    fameRating: 50, // Valeur par défaut, ajuster si vous avez la donnée
+                    fameRating: 50,
                     gender: match.gender,
                     sexualPreferences: match.sexual_preferences,
-                    age: calculateAge(match.birth_date)
+                    age: match.age,
                 };
-
+    
                 const score = calculateMatchScore(mainUserProfile, matchUserProfile);
+    
                 return { ...matchUserProfile, matchScore: score };
             })
             .sort((a, b) => b.matchScore - a.matchScore);
     }
+    
 
     async getFilteredAndSortedMatches(
         userId: number, 

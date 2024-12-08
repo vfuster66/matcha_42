@@ -90,7 +90,7 @@ describe('Database Configuration', () => {
             jest.resetModules(); // Réinitialise les modules entre les tests
             jest.isolateModules(() => {
                 const { Pool } = require('pg'); // Réimportation dans un contexte isolé
-                require('../config/database'); // Charge le module testé
+                require('../../config/database'); // Charge le module testé
                 expect(Pool).toHaveBeenCalledWith({
                     connectionString: 'postgresql://test:test@localhost:5432/testdb',
                 });

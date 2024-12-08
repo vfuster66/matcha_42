@@ -33,6 +33,6 @@ export class Database {
     }
 
     sanitizeInput(input: string): string {
-        return input.replace(/[^\w\s-]/gi, '');
-    }
+        return input.replace(/[^\w\s-]/gi, '').replace(/\s+/g, ' ').trim();
+    }    
 }

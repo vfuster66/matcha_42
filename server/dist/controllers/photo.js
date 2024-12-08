@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PhotoController = void 0;
 const photo_1 = require("../services/photo");
 const Profile_1 = require("../models/Profile");
+const fameRating_1 = require("../services/fameRating");
 class PhotoController {
     static async uploadPhoto(req, res) {
         try {
@@ -16,8 +17,13 @@ class PhotoController {
                 return;
             }
             const photos = await Profile_1.ProfileModel.getPhotos(userId);
+            if (photos.length >= 5) {
+                res.status(400).json({ error: 'Maximum number of photos (5) reached' });
+                return;
+            }
             const isPrimary = photos.length === 0; // Premier photo = photo principale
             const result = await photo_1.PhotoService.processAndSavePhoto(userId, req.file, isPrimary);
+            await fameRating_1.FameRatingService.updateFameRating(userId);
             res.json({
                 message: 'Photo uploaded successfully',
                 photo: result
@@ -45,6 +51,7 @@ class PhotoController {
                 return;
             }
             await Profile_1.ProfileModel.setPrimaryPhoto(userId, photoId);
+            await fameRating_1.FameRatingService.updateFameRating(userId);
             res.json({
                 message: 'Primary photo updated successfully'
             });
@@ -71,6 +78,7 @@ class PhotoController {
                 return;
             }
             await photo_1.PhotoService.deletePhoto(userId, photoId);
+            await fameRating_1.FameRatingService.updateFameRating(userId);
             res.json({
                 message: 'Photo deleted successfully'
             });
@@ -92,9 +100,7 @@ class PhotoController {
                 return;
             }
             const photos = await Profile_1.ProfileModel.getPhotos(userId);
-            res.json({
-                photos
-            });
+            res.json({ photos });
         }
         catch (error) {
             if (error instanceof Error) {

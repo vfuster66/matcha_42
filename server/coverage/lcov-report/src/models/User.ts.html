@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">86.36% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/19</span>
+                <span class='fraction'>19/22</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.44% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>17/18</span>
+                <span class='fraction'>18/21</span>
             </div>
         
             
@@ -110,12 +110,24 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -153,9 +165,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// server/src/models/User.ts
 import { db } from '../config/database';
@@ -163,6 +183,8 @@ import { User, DatabaseError } from '../types';
 import bcrypt from 'bcrypt';
 &nbsp;
 export class UserModel {
+  private static readonly SALT_ROUNDS = 10;
+&nbsp;
   static async create(username: string, email: string, password: string): Promise&lt;User&gt; {
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -195,15 +217,23 @@ export class UserModel {
     return result.rows[0] || null;
   }
 &nbsp;
-  static async verifyPassword(email: string, password: string): Promise&lt;boolean&gt; {
-    const result = await db.query&lt;{ password_hash: string }&gt;(
-      'SELECT password_hash FROM users WHERE email = $1',
-      [email]
-    );
-    
-    if (!result.rows[0]) return false;
-    return bcrypt.compare(password, result.rows[0].password_hash);
-  }
+    static async verifyPassword(email: string, password: string): Promise&lt;boolean&gt; {
+        const result = await db.query&lt;{ password_hash: string }&gt;(
+            'SELECT password_hash FROM users WHERE email = $1 AND is_verified = true',
+            [email]
+        );
+        if (!result.rows[0]) return false;
+        
+        return bcrypt.compare(password, result.rows[0].password_hash);
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    static </span>async updatePassword(userId: number, newPassword: string): Promise&lt;void&gt; {
+        const hashedPassword = <span class="cstat-no" title="statement not covered" >await bcrypt.hash(newPassword, this.SALT_ROUNDS);</span>
+<span class="cstat-no" title="statement not covered" >        await db.query(</span>
+            'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+            [hashedPassword, userId]
+        );
+    }
 }</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -211,7 +241,7 @@ export class UserModel {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2024-12-05T17:27:38.290Z
+                at 2024-12-08T17:48:23.031Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

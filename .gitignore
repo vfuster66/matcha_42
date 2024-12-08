@@ -1,0 +1,3 @@
+server/src/tests/fixtures/large-image.png
+server/.env
+server/.env.test

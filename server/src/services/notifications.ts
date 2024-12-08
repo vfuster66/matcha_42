@@ -1,4 +1,4 @@
-// server/src/services/notificationService.ts
+// server/src/services/notifications.ts
 import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
 import { db } from '../config/database';
@@ -75,12 +75,11 @@ export class NotificationService {
     }
 
     async markNotificationAsRead(notificationId: number): Promise<void> {
-        await db.query(`
-            UPDATE notifications
-            SET read = true
-            WHERE id = $1
-        `, [notificationId]);
-    }
+        await db.query(
+            'UPDATE notifications SET read = true WHERE id = $1',
+            [notificationId]
+        );
+    }    
 
     private async emitWithDelay(event: string, data: any): Promise<void> {
         const startTime = Date.now();

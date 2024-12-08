@@ -32,10 +32,15 @@ class UserModel {
         return result.rows[0] || null;
     }
     static async verifyPassword(email, password) {
-        const result = await database_1.db.query('SELECT password_hash FROM users WHERE email = $1', [email]);
+        const result = await database_1.db.query('SELECT password_hash FROM users WHERE email = $1 AND is_verified = true', [email]);
         if (!result.rows[0])
             return false;
         return bcrypt_1.default.compare(password, result.rows[0].password_hash);
     }
+    static async updatePassword(userId, newPassword) {
+        const hashedPassword = await bcrypt_1.default.hash(newPassword, this.SALT_ROUNDS);
+        await database_1.db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId]);
+    }
 }
 exports.UserModel = UserModel;
+UserModel.SALT_ROUNDS = 10;
